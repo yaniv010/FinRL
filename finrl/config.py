@@ -29,6 +29,50 @@ INDICATORS = [
     "close_60_sma",
 ]
 
+BASIC_FINS = [
+    'assetTurnoverTTM',
+    'bookValue',
+    'cashRatio',
+    'currentRatio',
+    'ebitPerShare',
+    'eps',
+    'ev',
+    'fcfMargin',
+    'fcfPerShareTTM',
+    'grossMargin',
+    'inventoryTurnoverTTM',
+    'longtermDebtTotalAsset',
+    'longtermDebtTotalCapital',
+    'longtermDebtTotalEquity',
+    'netDebtToTotalCapital',
+    'netDebtToTotalEquity',
+    'netMargin',
+    'operatingMargin',
+    'payoutRatioTTM',
+    'pb',
+    'peTTM',
+    'pfcfTTM',
+    'pretaxMargin',
+    'psTTM',
+    'ptbv',
+    'quickRatio',
+    'receivablesTurnoverTTM',
+    'roaTTM',
+    'roeTTM',
+    'roicTTM',
+    'rotcTTM',
+    'salesPerShare',
+    'sgaToSale',
+    'tangibleBookValue',
+    'totalDebtToEquity',
+    'totalDebtToTotalAsset',
+    'totalDebtToTotalCapital',
+    'totalRatio'
+]
+
+
+# train from 2014 to 2024
+NUM_QUARTERS = 4 * 4
 
 # Model Parameters
 A2C_PARAMS = {"n_steps": 5, "ent_coef": 0.01, "learning_rate": 0.0007}

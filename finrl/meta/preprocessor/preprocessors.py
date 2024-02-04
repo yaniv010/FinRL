@@ -64,15 +64,22 @@ class FeatureEngineer:
         self,
         use_technical_indicator=True,
         tech_indicator_list=config.INDICATORS,
+        use_basic_financials=True,
+        basic_financials_list=config.BASIC_FINS,
+        num_quarters=config.NUM_QUARTERS,
         use_vix=False,
         use_turbulence=False,
         user_defined_feature=False,
     ):
         self.use_technical_indicator = use_technical_indicator
         self.tech_indicator_list = tech_indicator_list
+        self.use_basic_financials = use_basic_financials
+        self.basic_financials_list = basic_financials_list
+        self.num_quarters = num_quarters
         self.use_vix = use_vix
         self.use_turbulence = use_turbulence
         self.user_defined_feature = user_defined_feature
+        self.finnhub_client = finnhub.Client(api_key=os.environ["FINNHUB_API_KEY"])
 
     def preprocess_data(self, df):
         """main method to do the feature engineering
@@ -86,6 +93,11 @@ class FeatureEngineer:
         if self.use_technical_indicator:
             df = self.add_technical_indicator(df)
             print("Successfully added technical indicators")
+
+        # add technical indicators using stockstats
+        if self.use_basic_financials:
+            df = self.add_basic_fins(df)
+            print("Successfully added basic financials")
 
         # add vix for multiple stock
         if self.use_vix:
@@ -171,6 +183,63 @@ class FeatureEngineer:
         # df = data.set_index(['date','tic']).sort_index()
         # df = df.join(df.groupby(level=0, group_keys=False).apply(lambda x, y: Sdf.retype(x)[y], y=self.tech_indicator_list))
         # return df.reset_index()
+
+    def add_basic_fins(self, data):
+        """
+        calculate basic financials
+        use finnhub package to add basic financials
+        :param data: (df) pandas dataframe
+        :return: (df) pandas dataframe
+        """
+        df = data.copy()
+        df = df.sort_values(by=["tic", "date"])
+
+        unique_ticker = df.tic.unique()
+
+        FINS_CACHE_FILENAME = "fins_cache.pkl"
+        try:
+            fins = pickle.load(FINS_CACHE_FILENAME)
+        except:
+            fins = {}
+        for ticker in unique_ticker:
+            if ticker not in fins:
+                fins[ticker] = .finnhub_client.company_basic_financials(ticker, 'all')['series']['quarterly']
+        pickle.dump(fins, FINS_CACHE_FILENAME)
+        #fins = {ticker: self.finnhub_client.company_basic_financials(ticker, 'all')['series']['quarterly'] for ticker in unique_ticker}
+
+        for fin_name in self.basic_financials_list:
+            fin_df = pd.DataFrame()
+            for i in range(len(unique_ticker)):
+                try:
+                    temp_fin = fins[unique_ticker[i]][fin_name]
+                    temp_fin = pd.DataFrame(temp_fin)
+                    temp_fin["tic"] = unique_ticker[i]
+                    temp_fin = temp_fin.rename(columns={"period": "date", "v": fin_name})
+                    fin_df = pd.concat(
+                        [fin_df, temp_fin], axis=0, ignore_index=True
+                    )
+                except Exception as e:
+                    print(e)
+
+            df = df.merge(
+                fin_df[["tic", "date", fin_name]], on=["tic", "date"], how="left", suffixes=('_df1', '_df2')
+            )
+
+            # Filter the rows in df2 where the date is less than or equal to the date in df1
+            filtered_df2 = df[df['date_df2'] <= df['date']]
+
+            # Sort the filtered_df2 by date and select the last X rows for each date in df1
+            result_df = filtered_df2.groupby('date_df1').apply(lambda x: x.sort_values(by='date_df2').tail(X)).reset_index(drop=True)
+
+            # Drop unnecessary columns and rename the columns
+            result_df = result_df[['date_df1', 'X1', 'X2']].rename(columns={'date_df1': 'date', 'X1': 'Value1', 'X2': 'Value2'})
+
+            # Merge the result back to df1 based on the Date column
+            final_df = pd.merge(df1, result_df, how='left', on='Date')
+
+
+        df = df.sort_values(by=["date", "tic"])
+        return df
 
     def add_user_defined_feature(self, data):
         """
